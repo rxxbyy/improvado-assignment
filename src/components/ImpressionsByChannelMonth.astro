@@ -1,0 +1,79 @@
+---
+import { LineChart } from "@mui/x-charts/LineChart";
+import { DATE_RANGE } from "../pages/index.astro";
+import type { LineSeriesType } from "@mui/x-charts";
+import { supabase } from "../db/supabase";
+
+type ChannelImpressionRow = {
+    month: string; // '2024-01-01'
+    channel: string; // 'Organic', 'Paid Search', etc.
+    impressions: number;
+};
+
+type DatasetRow = {
+    date: Date;
+    [channel: string]: number | Date;
+};
+
+const { data } = await supabase.rpc("get_impressions_by_channel_month", {
+    p_from: DATE_RANGE.from,
+    p_to: DATE_RANGE.to,
+});
+
+const channelImpressionsByMonth = data as ChannelImpressionRow[];
+if (!channelImpressionsByMonth) {
+    throw new Error("No data returned from RPC");
+}
+
+const datesMap = new Map<string, DatasetRow>();
+
+channelImpressionsByMonth.forEach((row: any) => {
+    const monthKey = row.month;
+
+    if (!datesMap.has(monthKey)) {
+        datesMap.set(monthKey, {
+            date: new Date(monthKey),
+        });
+    }
+
+    const entry = datesMap.get(monthKey)!;
+    entry[row.channel] = row.impressions;
+});
+
+const channels: string[] = Array.from(
+    new Set(channelImpressionsByMonth.map((row: any) => row.channel)),
+);
+
+const dataset: DatasetRow[] = Array.from(datesMap.values());
+const chartSeries: LineSeriesType[] = channels.map((channel) => ({
+    type: "line",
+    dataKey: channel,
+    label: channel,
+    stack: "total",
+    area: false,
+    showMark: false,
+}));
+---
+
+<div
+    class="w-full h-[350px] md:h-[450px] lg:h-[600px] bg-white rounded-lg shadow-sm p-4"
+>
+    <LineChart
+        client:only="react"
+        dataset={dataset}
+        xAxis={[
+            {
+                id: "Month",
+                dataKey: "date",
+                scaleType: "time",
+                valueFormatter: (date: Date) =>
+                    date.toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                    }),
+            },
+        ]}
+        yAxis={[{ width: 70 }]}
+        series={chartSeries}
+    />
+</div>

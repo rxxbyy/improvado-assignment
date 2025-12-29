@@ -1,16 +1,144 @@
 ---
+import MainLayout from "../layouts/MainLayout.astro";
+import { supabase } from "../db/supabase";
 
+import BasicMetric from "../components/BasicMetric.astro";
+import ChannelPerformanceTable from "../components/ChannelPerformanceTable.astro";
+import SourcePerformanceTable from "../components/SourcePerformanceTable.astro";
+import CampaignPerformanceTable from "../components/CampaignPeformanceTable.astro";
+import ImpressionsByChannelMonth from "../components/ImpressionsByChannelMonth.astro";
+
+const pcr = (v: number | null) => (v != null ? (v * 100).toFixed(2) : "—");
+
+export const DATE_RANGE = {
+    from: "2024-01-01",
+    to: "2024-12-31",
+};
+
+const { data } = await supabase.rpc("get_dashboard_summary", {
+    p_from: DATE_RANGE.from,
+    p_to: DATE_RANGE.to,
+});
+
+const { data: dailyMetrics } = await supabase.rpc("get_daily_metrics", {
+    p_from: DATE_RANGE.from,
+    p_to: DATE_RANGE.to,
+});
+
+const dashboard_summary = data[0];
+
+const METRICS = {
+    Spend: {
+        title: "Spend",
+        amount:
+            dashboard_summary?.spend != null
+                ? Number(dashboard_summary?.spend).toFixed(2)
+                : "—",
+        unit: "$",
+        data: dailyMetrics.map((row: any) => row.spend),
+    },
+    CPM: {
+        title: "CPM",
+        amount:
+            dashboard_summary?.cpm != null
+                ? Number(dashboard_summary?.cpm).toFixed(2)
+                : "—",
+        unit: "$",
+        data: dailyMetrics.map((row: any) => row.cpm),
+    },
+    CTR: {
+        title: "CTR",
+        amount: pcr(dashboard_summary?.ctr),
+        unit: "%",
+        data: dailyMetrics.map((row: any) => row.ctr),
+    },
+    CPC: {
+        title: "CPC",
+        amount:
+            dashboard_summary?.cpc != null
+                ? Number(dashboard_summary?.cpc).toFixed(2)
+                : "—",
+        unit: "$",
+        data: dailyMetrics.map((row: any) => row.cpc),
+    },
+    CPA: {
+        title: "CPA",
+        amount:
+            dashboard_summary?.cpa != null
+                ? Number(dashboard_summary?.cpa).toFixed(2)
+                : "—",
+        unit: "$",
+        data: dailyMetrics.map((row: any) => row.cpa),
+    },
+    impressions: {
+        title: "Impressions",
+        amount:
+            dashboard_summary?.impressions != null
+                ? Number(dashboard_summary?.impressions)
+                : "—",
+        unit: "",
+        data: dailyMetrics.map((row: any) => row.impressions),
+    },
+    conversions: {
+        title: "Conversions",
+        amount:
+            dashboard_summary?.conversions != null
+                ? Number(dashboard_summary?.conversions)
+                : "—",
+        unit: "",
+        data: dailyMetrics.map((row: any) => row.conversions),
+    },
+    cvr: {
+        title: "CVR",
+        amount: pcr(dashboard_summary?.cvr),
+        unit: "%",
+        data: dailyMetrics.map((row: any) => row.cvr),
+    },
+};
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<MainLayout class="bg-light-gray">
+    <header
+        class="bg-primary text-white px-4 md:px-6 lg:px-10 py-4 flex items-center justify-between"
+    >
+        <h1 class="text-xl md:text-2xl font-semibold">Executive Summary</h1>
+        <div class="flex items-center gap-2 text-sm md:text-base">
+            <span class="opacity-80">Date Range:</span>
+            <span class="font-medium">{DATE_RANGE.from} — {DATE_RANGE.to}</span>
+        </div>
+    </header>
+    <main class="p-4 md:p-6 lg:p-10 flex flex-col gap-y-6 lg:gap-y-10">
+        <!-- Row 1: Metrics Grid + 1 Table -->
+        <div class="flex flex-col lg:flex-row gap-6 lg:gap-x-10">
+            <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                {
+                    Object.entries(METRICS).map(([key, value]) => (
+                        <BasicMetric
+                            title={value.title}
+                            amount={value.amount}
+                            unit={value.unit}
+                            data={value.data}
+                        />
+                    ))
+                }
+            </div>
+            <div
+                class="w-full lg:w-[450px] xl:w-[550px] 2xl:w-[650px] lg:flex-shrink-0"
+            >
+                <ChannelPerformanceTable />
+            </div>
+        </div>
+        <!-- Row 2: Line Chart + 2 Tables stacked -->
+        <div class="flex flex-col lg:flex-row gap-6 lg:gap-x-10">
+            <section class="flex-1 min-w-0">
+                <ImpressionsByChannelMonth />
+            </section>
+            <section
+                class="flex flex-col gap-y-6 lg:gap-y-10 w-full lg:w-[450px] xl:w-[550px] 2xl:w-[650px] lg:flex-shrink-0"
+            >
+                <SourcePerformanceTable />
+                <CampaignPerformanceTable />
+            </section>
+        </div>
+    </main>
+</MainLayout>
